@@ -3,10 +3,10 @@
 <table>
   <tr>
     <td>
-      <img width="100%" alt="Sass logo" src="https://rawgit.com/sass/node-sass/master/media/logo.svg" />
+      <img width="77px" alt="Sass logo" src="https://rawgit.com/sass/node-sass/master/media/logo.svg" />
     </td>
     <td valign="bottom" align="right">
-      <a href="https://nodei.co/npm/node-sass/">
+      <a href="https://www.npmjs.com/package/node-sass">
         <img width="100%" src="https://nodei.co/npm/node-sass.png?downloads=true&downloadRank=true&stars=true">
       </a>
     </td>
@@ -20,13 +20,13 @@
 [![devDependency Status](https://david-dm.org/sass/node-sass/dev-status.svg?theme=shields.io)](https://david-dm.org/sass/node-sass#info=devDependencies)
 [![Coverage Status](https://coveralls.io/repos/sass/node-sass/badge.svg?branch=master)](https://coveralls.io/r/sass/node-sass?branch=master)
 [![Inline docs](http://inch-ci.org/github/sass/node-sass.svg?branch=master)](http://inch-ci.org/github/sass/node-sass)
-[![Gitter chat](http://img.shields.io/badge/gitter-sass/node--sass-brightgreen.svg)](https://gitter.im/sass/node-sass)
+[![Gitter chat](https://img.shields.io/badge/gitter-sass/node--sass-brightgreen.svg)](https://gitter.im/sass/node-sass)
 
-Node-sass is a library that provides binding for Node.js to [libsass], the C version of the popular stylesheet preprocessor, Sass.
+Node-sass is a library that provides binding for Node.js to [LibSass], the C version of the popular stylesheet preprocessor, Sass.
 
 It allows you to natively compile .scss files to css at incredible speed and automatically via a connect middleware.
 
-Find it on npm: <https://npmjs.org/package/node-sass>
+Find it on npm: <https://www.npmjs.com/package/node-sass>
 
 Follow @nodesass on twitter for release updates: https://twitter.com/nodesass
 
@@ -36,9 +36,11 @@ Follow @nodesass on twitter for release updates: https://twitter.com/nodesass
 npm install node-sass
 ```
 
-Some users have reported issues installing on Ubuntu due to `node` being registered to another package. [Follow the official NodeJS docs](https://github.com/joyent/node/wiki/Installing-Node.js-via-package-manager) to install NodeJS so that `#!/usr/bin/env node` correctly resolved.
+Some users have reported issues installing on Ubuntu due to `node` being registered to another package. [Follow the official NodeJS docs](https://github.com/nodejs/node-v0.x-archive/wiki/Installing-Node.js-via-package-manager) to install NodeJS so that `#!/usr/bin/env node` correctly resolved.
 
-Compiling versions 0.9.4 and above on Windows machines requires [Visual Studio 2013 WD](http://www.visualstudio.com/downloads/download-visual-studio-vs#d-express-windows-desktop). If you have multiple VS versions, use ```npm install``` with the ```--msvs_version=2013``` flag also use this flag when rebuilding the module with node-gyp or nw-gyp.
+Compiling versions 0.9.4 and above on Windows machines requires [Visual Studio 2013 WD](https://www.visualstudio.com/downloads/download-visual-studio-vs#d-express-windows-desktop). If you have multiple VS versions, use ```npm install``` with the ```--msvs_version=2013``` flag also use this flag when rebuilding the module with node-gyp or nw-gyp.
+
+**Having installation troubles? Check out our [Troubleshooting guide](/TROUBLESHOOTING.md).**
 
 ## Usage
 
@@ -57,49 +59,150 @@ var result = sass.renderSync({
 
 ## Options
 ### file
-Type: `String | null`
+Type: `String`
 Default: `null`
 **Special**: `file` or `data` must be specified
 
-Path to a file for [libsass] to render.
+Path to a file for [LibSass] to render.
 
 ### data
-Type: `String | null`
+Type: `String`
 Default: `null`
 **Special**: `file` or `data` must be specified
 
-A string to pass to [libsass] to render. It is recommended that you use `includePaths` in conjunction with this so that [libsass] can find files when using the `@import` directive.
+A string to pass to [LibSass] to render. It is recommended that you use `includePaths` in conjunction with this so that [LibSass] can find files when using the `@import` directive.
 
-### importer (>= v2.0.0)
-Type: `Function` signature `function(url, prev, done)`
+### importer (>= v2.0.0) - _experimental_
+
+**This is an experimental LibSass feature. Use with caution.**
+
+Type: `Function | Function[]` signature `function(url, prev, done)`
 Default: `undefined`
 
 Function Parameters and Information:
-* `url (String)` - the path in import **as-is**, which [libsass] encountered
+* `url (String)` - the path in import **as-is**, which [LibSass] encountered
 * `prev (String)` - the previously resolved path
 * `done (Function)` - a callback function to invoke on async completion, takes an object literal containing
-  * `file (String)` - an alternate path for [libsass] to use **OR**
+  * `file (String)` - an alternate path for [LibSass] to use **OR**
   * `contents (String)` - the imported contents (for example, read from memory or the file system)
 
-Handles when [libsass] encounters the `@import` directive. A custom importer allows extension of the [libsass] engine in both a synchronous and asynchronous manner. In both cases, the goal is to either `return` or call `done()` with an object literal. Depending on the value of the object literal, one of two things will happen.
+Handles when [LibSass] encounters the `@import` directive. A custom importer allows extension of the [LibSass] engine in both a synchronous and asynchronous manner. In both cases, the goal is to either `return` or call `done()` with an object literal. Depending on the value of the object literal, one of two things will happen.
 
 When returning or calling `done()` with `{ file: "String" }`, the new file path will be assumed for the `@import`. It's recommended to be mindful of the value of `prev` in instances where relative path resolution may be required.
 
 When returning or calling `done()` with `{ contents: "String" }`, the string value will be used as if the file was read in through an external source.
 
-`this` refers to a contextual scope for the immediate run of `sass.render` or `sass.renderSync`
+Starting from v3.0.0:
+
+* `this` refers to a contextual scope for the immediate run of `sass.render` or `sass.renderSync`
+
+* importers can return error and LibSass will emit that error in response. For instance:
+
+  ```javascript
+  done(new Error('doesn\'t exist!'));
+  // or return synchornously
+  return new Error('nothing to do here');
+  ```
+
+* importer can be an array of functions, which will be called by LibSass in the order of their occurrence in array. This helps user specify special importer for particular kind of path (filesystem, http). If an importer does not want to handle a particular path, it should return `sass.NULL`. See [functions section](#functions--v300) for more details on Sass types.
+
+### functions (>= v3.0.0) - _experimental_
+
+**This is an experimental LibSass feature. Use with caution.**
+
+`functions` is an `Object` that holds a collection of custom functions that may be invoked by the sass files being compiled. They may take zero or more input parameters and must return a value either synchronously (`return ...;`) or asynchronously (`done();`). Those parameters will be instances of one of the constructors contained in the `require('node-sass').types` hash. The return value must be of one of these types as well. See the list of available types below:
+
+#### types.Number(value [, unit = ""])
+* `getValue()`/ `setValue(value)` : gets / sets the numerical portion of the number
+* `getUnit()` / `setUnit(unit)` : gets / sets the unit portion of the number
+
+#### types.String(value)
+* `getValue()` / `setValue(value)` : gets / sets the enclosed string
+
+#### types.Color(r, g, b [, a = 1.0]) or types.Color(argb)
+* `getR()` / `setR(value)` : red component (integer from `0` to `255`)
+* `getG()` / `setG(value)` : green component (integer from `0` to `255`)
+* `getB()` / `setB(value)` : blue component (integer from `0` to `255`)
+* `getA()` / `setA(value)` : alpha component (number from `0` to `1.0`)
+
+Example:
+
+```javascript
+var Color = require('node-sass').types.Color,
+  c1 = new Color(255, 0, 0),
+  c2 = new Color(0xff0088cc);
+```
+
+#### types.Boolean(value)
+* `getValue()` : gets the enclosed boolean
+* `types.Boolean.TRUE` : Singleton instance of `types.Boolean` that holds "true"
+* `types.Boolean.FALSE` : Singleton instance of `types.Boolean` that holds "false"
+
+#### types.List(length [, commaSeparator = true])
+* `getValue(index)` / `setValue(index, value)` : `value` must itself be an instance of one of the constructors in `sass.types`.
+* `getSeparator()` / `setSeparator(isComma)` : whether to use commas as a separator
+* `getLength()`
+
+#### types.Map(length)
+* `getKey(index)` / `setKey(index, value)`
+* `getValue(index)` / `setValue(index, value)`
+* `getLength()`
+
+#### types.Null()
+* `types.Null.NULL` : Singleton instance of `types.Null`.
+
+#### Example
+
+```javascript
+sass.renderSync({
+  data: '#{headings(2,5)} { color: #08c; }',
+  functions: {
+    'headings($from: 0, $to: 6)': function(from, to) {
+      var i, f = from.getValue(), t = to.getValue(),
+          list = new sass.types.List(t - f + 1);
+
+      for (i = f; i <= t; i++) {
+        list.setValue(i - f, new sass.types.String('h' + i));
+      }
+
+      return list;
+    }
+  }
+});
+```
 
 ### includePaths
 Type: `Array<String>`
 Default: `[]`
 
-An array of paths that [libsass] can look in to attempt to resolve your `@import` declarations. When using `data`, it is recommended that you use this.
+An array of paths that [LibSass] can look in to attempt to resolve your `@import` declarations. When using `data`, it is recommended that you use this.
 
 ### indentedSyntax
 Type: `Boolean`
 Default: `false`
 
 `true` values enable [Sass Indented Syntax](http://sass-lang.com/documentation/file.INDENTED_SYNTAX.html) for parsing the data string or file.
+
+__Note:__ node-sass/libsass will compile a mixed library of scss and indented syntax (.sass) files with the Default setting (false) as long as .sass and .scss extensions are used in filenames.
+
+### indentType (>= v3.0.0)
+Type: `String`
+Default: `space`
+
+Used to determine whether to use space or tab character for indentation.
+
+### indentWidth (>= v3.0.0)
+Type: `Number`
+Default: `2`
+Maximum: `10`
+
+Used to determine the number of spaces or tabs to be used for indentation.
+
+### linefeed (>= v3.0.0)
+Type: `String`
+Default: `lf`
+
+Used to determine whether to use `cr`, `crlf`, `lf` or `lfcr` sequence for line break.
 
 ### omitSourceMapUrl
 Type: `Boolean`
@@ -115,12 +218,32 @@ Default: `null`
 
 Specify the intended location of the output file. Strongly recommended when outputting source maps so that they can properly refer back to their intended files.
 
+**Attention** enabling this option will **not** write the file on disk for you, it's for internal reference purpose only (to generate the map for example).
+
+Example on how to write it on the disk
+```javascript
+sass.render({
+    ...
+    outFile: yourPathTotheFile,
+  }, function(error, result) { // node-style callback from v3.0.0 onwards
+    if(!error){
+      // No errors during the compilation, write this result on the disk
+      fs.writeFile(yourPathTotheFile, result.css, function(err){
+        if(!err){
+          //file written on disk
+        }
+      });
+    }
+  });
+});
+```
+
 ### outputStyle
 Type: `String`
 Default: `nested`
-Values: `nested`, `compressed`
+Values: `nested`, `expanded`, `compact`, `compressed`
 
-Determines the output format of the final CSS style. (`'expanded'` and `'compact'` are not currently supported by [libsass], but are planned in a future version.)
+Determines the output format of the final CSS style.
 
 ### precision
 Type: `Integer`
@@ -139,7 +262,13 @@ Type: `Boolean | String | undefined`
 Default: `undefined`
 **Special:** Setting the `sourceMap` option requires also setting the `outFile` option
 
-Enables the outputting of a source map during `render` and `renderSync`. When `sourceMap === true`, the value of `outFile` is used as the target output location for the source map. When `typeof sourceMap === "String"`, the value of `sourceMap` will be used as the writing location for the file.
+Enables the outputting of a source map during `render` and `renderSync`. When `sourceMap === true`, the value of `outFile` is used as the target output location for the source map. When `typeof sourceMap === "string"`, the value of `sourceMap` will be used as the writing location for the file.
+
+### sourceMapContents
+Type: `Boolean`
+Default: `false`
+
+`true` includes the `contents` in the source map information
 
 ### sourceMapEmbed
 Type: `Boolean`
@@ -147,11 +276,11 @@ Default: `false`
 
 `true` embeds the source map as a data URI
 
-### sourceMapContents
-Type: `Boolean`
-Default: `false`
+### sourceMapRoot
+Type: `String`
+Default: `undefined`
 
-`true` includes the `contents` in the source map information
+the value will be emitted as `sourceRoot` in the source map information
 
 ## `render` Callback (>= v3.0.0)
 node-sass supports standard node style asynchronous callbacks with the signature of `function(err, result)`. In error conditions, the `error` argument is populated with the error object. In success conditions, the `result` object is populated with an object describing the result of the render call.
@@ -181,13 +310,13 @@ sass.render({
   file: '/path/to/myFile.scss',
   data: 'body{background:blue; a{color:black;}}',
   importer: function(url, prev, done) {
-    // url is the path in import as is, which libsass encountered.
+    // url is the path in import as is, which LibSass encountered.
     // prev is the previously resolved path.
     // done is an optional callback, either consume it or return value synchronously.
     // this.options contains this options hash, this.callback contains the node-style callback
     someAsyncFunction(url, prev, function(result){
       done({
-        file: result.path, // only one of them is required, see section Sepcial Behaviours.
+        file: result.path, // only one of them is required, see section Special Behaviours.
         contents: result.data
       });
     });
@@ -197,17 +326,21 @@ sass.render({
   },
   includePaths: [ 'lib/', 'mod/' ],
   outputStyle: 'compressed'
-}, function(error, result) { // >= v3.0.0
+}, function(error, result) { // node-style callback from v3.0.0 onwards
   if (error) {
-    console.log(error.status); // use "code" <= v3.0.0
+    console.log(error.status); // used to be "code" in v2x and below
     console.log(error.column);
     console.log(error.message);
     console.log(error.line);
   }
   else {
     console.log(result.css.toString());
+
     console.log(result.stats);
-    console.log(result.map.toString()); // or console.log(JSON.stringify(result.map));
+
+    console.log(result.map.toString());
+    // or better
+    console.log(JSON.stringify(result.map)); // note, JSON.stringify accepts Buffer too
   }
 });
 // OR
@@ -218,7 +351,7 @@ var result = sass.renderSync({
   outFile: '/to/my/output.css',
   sourceMap: true, // or an absolute or relative (to outFile) path
   importer: function(url, prev, done) {
-    // url is the path in import as is, which libsass encountered.
+    // url is the path in import as is, which LibSass encountered.
     // prev is the previously resolved path.
     // done is an optional callback, either consume it or return value synchronously.
     // this.options contains this options hash
@@ -231,7 +364,7 @@ var result = sass.renderSync({
     // OR
     var result = someSyncFunction(url, prev);
     return {file: result.path, contents: result.data};
-  },
+  }
 }));
 
 console.log(result.css);
@@ -245,7 +378,7 @@ console.log(result.stats);
 
 ### Version information (>= v2.0.0)
 
-Both `node-sass` and `libsass` version info is now present in `package.json` and is exposed via `info` method:
+Both `node-sass` and `libsass` version info is now exposed via the `info` method:
 
 ```javascript
 var sass = require('node-sass');
@@ -259,6 +392,8 @@ console.log(sass.info);
   libsass         3.1.0   (Sass Compiler) [C/C++]
 */
 ```
+
+Since node-sass >=v3.0.0 LibSass version is determined at run time.
 
 ## Integrations
 
@@ -326,18 +461,20 @@ git clone --recursive https://github.com/sass/node-sass.git
 cd node-sass
 git submodule update --init --recursive
 npm install
-npm install -g node-gyp
-node-gyp rebuild  # to make debug release, use -d switch
+node scripts/build -f  # use -d switch for debug release
+# if succeeded, it will generate and move
+# the binary in vendor directory.
 ```
 
 ## Command Line Interface
 
 The interface for command-line usage is fairly simplistic at this stage, as seen in the following usage section.
 
-Output will be saved with the same name as input SASS file into the current working directory if it's omitted.
+Output will be saved with the same name as input Sass file into the current working directory if the `--output` flag is omitted.
 
 ### Usage
- `node-sass [options] <input.scss> [<output.css>]`
+ `node-sass [options] <input> [output]`
+ `cat <input> | node-sass > output`
 
  **Options:**
 
@@ -347,29 +484,63 @@ Output will be saved with the same name as input SASS file into the current work
     -o, --output               Output directory
     -x, --omit-source-map-url  Omit source map URL comment from output
     -i, --indented-syntax      Treat data from stdin as sass code (versus scss)
+    -q, --quiet                Suppress log output except on error
     -v, --version              Prints version info
-    --output-style             CSS output style (nested|expanded|compact|compressed)
+    --output-style             CSS output style (nested | expanded | compact | compressed)
+    --indent-type              Indent type for output CSS (space | tab)
+    --indent-width             Indent width; number of spaces or tabs (maximum value: 10)
+    --linefeed                 Linefeed style (cr | crlf | lf | lfcr)
     --source-comments          Include debug info in output
     --source-map               Emit source map
-    --source-map-embed         Embed sourceMappingUrl as data URI
     --source-map-contents      Embed include contents in map
+    --source-map-embed         Embed sourceMappingUrl as data URI
+    --source-map-root          Base path, will be emitted in source-map as is
     --include-path             Path to look for imported files
+    --follow                   Follow symlinked directories
     --precision                The amount of precision allowed in decimal numbers
-    --importer                 Path to custom importer
+    --importer                 Path to .js file containing custom importer
+    --functions                Path to .js file containing custom functions
     --help                     Print usage info
 ```
 
-Note `--importer` takes the (absolute or relative to pwd) path to a js file, which needs to have a default `module.exports` set to the importer function. See our test [fixtures](https://github.com/sass/node-sass/tree/974f93e76ddd08ea850e3e663cfe64bb6a059dd3/test/fixtures/extras) for example.
+The `input` can be either a single `.scss` or `.sass`, or a directory. If the input is a directory the `--output` flag must also be supplied.
+
+Also, note `--importer` takes the (absolute or relative to pwd) path to a js file, which needs to have a default `module.exports` set to the importer function. See our test [fixtures](https://github.com/sass/node-sass/tree/974f93e76ddd08ea850e3e663cfe64bb6a059dd3/test/fixtures/extras) for example.
+
+The `--source-map` option accepts a boolean value, in which case it replaces destination extension with `.css.map`. It also accepts path to `.map` file and even path to the desired directory.
+When compiling a directory `--source-map` can either be a boolean value or a directory.
+
+## Binary configuration parameters
+
+node-sass supports different configuration parameters to change settings related to the sass binary such as binary name, binary path or alternative download path. Following parameters are supported by node-sass:
+
+Variable name    | .npmrc parameter | Process argument   | Value
+-----------------|------------------|--------------------|------
+SASS_BINARY_NAME | sass_binary_name | --sass-binary-name | path
+SASS_BINARY_SITE | sass_binary_site | --sass-binary-site | URL
+SASS_BINARY_PATH | sass_binary_path | --sass-binary-path | path
+
+These parameters can be used as environment variable:
+
+* E.g. `export SASS_BINARY_SITE=http://example.com/`
+
+As local or global [.npmrc](https://docs.npmjs.com/misc/config) configuration file:
+
+* E.g. `sass_binary_site=http://example.com/`
+
+As a process argument:
+
+* E.g. `npm install node-sass --SASS_BINARY_SITE=http://example.com/`
 
 ## Post-install Build
 
-Install runs only two Mocha tests to see if your machine can use the pre-built [libsass] which will save some time during install. If any tests fail it will build from source.
+Install runs only two Mocha tests to see if your machine can use the pre-built [LibSass] which will save some time during install. If any tests fail it will build from source.
 
 ## Maintainers
 
 This module is brought to you and maintained by the following people:
 
-* Adeel Mujahid - Project Lead ([Github](https://github.com/am11) / [Twitter](https://twitter.com/adeelbm))
+* Michael Mifsud - Project Lead ([Github](https://github.com/xzyfer) / [Twitter](https://twitter.com/xzyfer))
 * Andrew Nesbitt ([Github](https://github.com/andrew) / [Twitter](https://twitter.com/teabass))
 * Dean Mao ([Github](https://github.com/deanmao) / [Twitter](https://twitter.com/deanmao))
 * Brett Wilkins ([Github](https://github.com/bwilkins) / [Twitter](https://twitter.com/bjmaz))
@@ -377,6 +548,7 @@ This module is brought to you and maintained by the following people:
 * Laurent Goderre ([Github](https://github.com/laurentgoderre) / [Twitter](https://twitter.com/laurentgoderre))
 * Nick Schonning ([Github](https://github.com/nschonni) / [Twitter](https://twitter.com/nschonni))
 * Adam Yeats ([Github](https://github.com/adamyeats) / [Twitter](https://twitter.com/adamyeats))
+* Adeel Mujahid ([Github](https://github.com/am11) / [Twitter](https://twitter.com/adeelbm))
 
 ## Contributors
 
@@ -394,4 +566,4 @@ We <3 our contributors! A special thanks to all those who have clocked in some d
 
 Copyright (c) 2015 Andrew Nesbitt. See [LICENSE](https://github.com/sass/node-sass/blob/master/LICENSE) for details.
 
-[libsass]: https://github.com/hcatlin/libsass
+[LibSass]: https://github.com/sass/libsass

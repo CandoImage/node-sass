@@ -1,9 +1,14 @@
+/*!
+ * node-sass: scripts/install.js
+ */
+
 var fs = require('fs'),
-    path = require('path'),
-    request = require('request'),
-    mkdirp = require('mkdirp'),
+    eol = require('os').EOL,
+    mkdir = require('mkdirp'),
     npmconf = require('npmconf'),
-    packageInfo = require('../package.json');
+    path = require('path'),
+    got = require('got'),
+    pkg = require('../package.json');
 
 require('../lib/extensions');
 
@@ -17,19 +22,35 @@ require('../lib/extensions');
  */
 
 function download(url, dest, cb) {
+  var reportError = function(err) {
+    cb(['Cannot download "', url, '": ', eol, eol,
+      typeof err.message === 'string' ? err.message : err, eol, eol,
+      'Hint: If github.com is not accessible in your location', eol,
+      '      try setting a proxy via HTTP_PROXY, e.g. ', eol, eol,
+      '      export HTTP_PROXY=http://example.com:1234',eol, eol,
+      'or configure npm proxy via', eol, eol,
+      '      npm config set proxy http://example.com:8080'].join(''));
+  };
+
   applyProxy({ rejectUnauthorized: false }, function(options) {
-    var returnError = function(err) {
-      cb(typeof err.message === 'string' ? err.message : err);
+    options.headers = {
+      'User-Agent': [
+        'node/', process.version, ' ',
+        'node-sass-installer/', pkg.version
+      ].join('')
     };
-
-    request.get(url, options).on('response', function(response) {
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        returnError('Can not download file from ' + url);
-        return;
-      }
-
-      response.pipe(fs.createWriteStream(dest));
-    }).on('error', returnError);
+    try {
+      got.stream(url, options)
+        .on('error', function(error) {
+          reportError(error);
+        })
+        .on('end', function() {
+          cb();
+        })
+        .pipe(fs.createWriteStream(dest));
+    } catch (err) {
+      cb(err);
+    }
   });
 }
 
@@ -64,49 +85,30 @@ function applyProxy(options, cb) {
 }
 
 /**
- * Check if binaries exists
+ * Check and download binary
  *
  * @api private
  */
 
-function checkAndFetchBinaries() {
-  fs.exists(path.join(__dirname, '..', 'vendor', process.sassBinaryName), function (exists) {
-    if (exists) {
-      return;
-    }
+function checkAndDownloadBinary() {
+  try {
+    process.sass.getBinaryPath(true);
+    return;
+  } catch (e) { }
 
-    fetch();
-  });
-}
-
-/**
- * Fetch binaries
- *
- * @api private
- */
-
-function fetch() {
-  var url = [
-    'https://raw.githubusercontent.com/sass/node-sass-binaries/v',
-    packageInfo.version, '/', process.sassBinaryName,
-    '/binding.node'
-  ].join('');
-  var dir = path.join(__dirname, '..', 'vendor', process.sassBinaryName);
-  var dest = path.join(dir, 'binding.node');
-
-  mkdirp(dir, function(err) {
+  mkdir(path.dirname(process.sass.binaryPath), function(err) {
     if (err) {
       console.error(err);
       return;
     }
 
-    download(url, dest, function(err) {
+    download(process.sass.binaryUrl, process.sass.binaryPath, function(err) {
       if (err) {
         console.error(err);
         return;
       }
 
-      console.log('Binary downloaded and installed at ' + dest);
+      console.log('Binary downloaded and installed at', process.sass.binaryPath);
     });
   });
 }
@@ -121,7 +123,7 @@ if (process.env.SKIP_SASS_BINARY_DOWNLOAD_FOR_CI) {
 }
 
 /**
- * Run
+ * If binary does not exsit, download it
  */
 
-checkAndFetchBinaries();
+checkAndDownloadBinary();

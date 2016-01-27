@@ -1,8 +1,13 @@
+/*!
+ * node-sass: scripts/build.js
+ */
+
 var eol = require('os').EOL,
+    pkg = require('../package.json'),
     fs = require('fs'),
     mkdir = require('mkdirp'),
     path = require('path'),
-    spawn = require('child_process').spawn;
+    spawn = require('cross-spawn');
 
 require('../lib/extensions');
 
@@ -14,11 +19,12 @@ require('../lib/extensions');
  */
 
 function afterBuild(options) {
-  var folder = options.debug ? 'Debug' : 'Release';
-  var target = path.join(__dirname, '..', 'build', folder, 'binding.node');
-  var install = path.join(__dirname, '..', 'vendor', process.sassBinaryName, 'binding.node');
+  var install = process.sass.binaryPath;
+  var target = path.join(__dirname, '..', 'build',
+    options.debug ? 'Debug' : process.config.target_defaults.default_configuration,
+    'binding.node');
 
-  mkdir(path.join(__dirname, '..', 'vendor', process.sassBinaryName), function(err) {
+  mkdir(path.dirname(install), function(err) {
     if (err && err.code !== 'EEXIST') {
       console.error(err.message);
       return;
@@ -36,10 +42,78 @@ function afterBuild(options) {
           return;
         }
 
-        console.log('Installed in `' + install + '`');
+        console.log('Installed in `', install, '`');
       });
     });
   });
+}
+
+/**
+ * manageProcess
+ *
+ * @param {ChildProcess} proc
+ * @param {Function} cb
+ * @api private
+ */
+
+function manageProcess(proc, cb) {
+  var errorMsg = '';
+  proc.stderr.on('data', function(data) {
+    errorMsg += data.toString();
+  });
+  proc.on('close', function(code) {
+    cb(code === 0 ? null : { message: errorMsg });
+  });
+}
+
+/**
+ * initSubmodules
+ *
+ * @param {Function} cb
+ * @api private
+ */
+
+function initSubmodules(cb) {
+  console.log('Detected a git install');
+  console.log('Cloning libSass into src/libsass');
+
+  var clone = spawn('git', ['clone', 'https://github.com/sass/libsass.git', './src/libsass']);
+  manageProcess(clone, function(err) {
+    if (err) {
+      cb(err);
+      return;
+    }
+
+    console.log('Checking out libsass to ' + pkg.libsass);
+
+    var checkout = spawn('git', ['checkout', pkg.libsass], { cwd: './src/libsass' });
+    manageProcess(checkout, function(err) {
+      cb(err);
+    });
+  });
+}
+
+/**
+ * installGitDependencies
+ *
+ * @param {Function} cb
+ * @api private
+ */
+
+function installGitDependencies(options, cb) {
+  var libsassPath = './src/libsass';
+
+  if (process.env.LIBSASS_EXT || options.libsassExt) {
+    cb();
+  } else if (fs.access) { // node 0.12+, iojs 1.0.0+
+    fs.access(libsassPath, fs.R_OK, function(err) {
+      err && err.code === 'ENOENT' ? initSubmodules(cb) : cb();
+    });
+  } else { // node < 0.12
+    fs.exists(libsassPath, function(exists) {
+      exists ? cb() : initSubmodules(cb);
+    });
+  }
 }
 
 /**
@@ -50,22 +124,33 @@ function afterBuild(options) {
  */
 
 function build(options) {
-  var arguments = [path.join('node_modules', 'pangyp', 'bin', 'node-gyp'), 'rebuild'].concat(options.args);
-
-  console.log(['Building:', process.runtime.execPath].concat(arguments).join(' '));
-
-  var proc = spawn(process.runtime.execPath, arguments, {
-    stdio: [0, 1, 2]
-  });
-
-  proc.on('exit', function(errorCode) {
-    if (!errorCode) {
-      afterBuild(options);
-
-      return;
+  installGitDependencies(options, function(err) {
+    if (err) {
+      console.error(err.message);
+      process.exit(1);
     }
 
-    console.error(errorCode === 127 ? 'node-gyp not found!' : 'Build failed');
+    var args = [require.resolve(path.join('node-gyp', 'bin', 'node-gyp.js')), 'rebuild', '--verbose'].concat(
+      ['libsass_ext', 'libsass_cflags', 'libsass_ldflags', 'libsass_library'].map(function(subject) {
+        return ['--', subject, '=', process.env[subject.toUpperCase()] || ''].join('');
+      })).concat(options.args);
+
+    console.log(['Building:', process.execPath].concat(args).join(' '));
+
+    var proc = spawn(process.execPath, args, {
+      stdio: [0, 1, 2]
+    });
+
+    proc.on('exit', function(errorCode) {
+      if (!errorCode) {
+        afterBuild(options);
+
+        return;
+      }
+
+      console.error(errorCode === 127 ? 'node-gyp not found!' : 'Build failed');
+      process.exit(1);
+    });
   });
 }
 
@@ -90,6 +175,8 @@ function parseArgs(args) {
       options.arch = arg.substring(14);
     } else if (arg === '-d' || arg === '--debug') {
       options.debug = true;
+    } else if (arg.substring(0, 13) === '--libsass_ext' && arg.substring(14) !== 'no') {
+      options.libsassExt = true;
     }
 
     return true;
@@ -110,25 +197,25 @@ function testBinary(options) {
     return build(options);
   }
 
-  fs.stat(path.join(__dirname, '..', 'vendor', process.sassBinaryName, 'binding.node'), function(err) {
-    if (err) {
-      return build(options);
-    }
+  try {
+    process.sass.getBinaryPath(true);
+  } catch (e) {
+    return build(options);
+  }
 
-    console.log('`' + process.sassBinaryName + '` exists; testing.');
+  console.log('`', process.sass.binaryPath, '` exists.', eol, 'testing binary.');
 
-    try {
-      require('../').renderSync({
-        data: 's: { a: ss }'
-      });
+  try {
+    require('../').renderSync({
+      data: 's { a: ss }'
+    });
 
-      console.log('Binary is fine; exiting.');
-    } catch (e) {
-      console.log(['Problem with the binary.', 'Manual build incoming.'].join(eol));
+    console.log('Binary is fine; exiting.');
+  } catch (e) {
+    console.log(['Problem with the binary.', 'Manual build incoming.'].join(eol));
 
-      return build(options);
-    }
-  });
+    return build(options);
+  }
 }
 
 /**
